@@ -213,16 +213,16 @@
   </div>
 
   <script>
-    // ✅ Étape 1 : Extraire le restaurant_id de l'URL
-    const pathParts = window.location.pathname.split('/');
-    const restaurantId = pathParts[2]; // /staff/rest_a1b2c3 → index 2
+    // ✅ 🔑 CORRECTION : Lire le restaurant_id depuis ?token=...
+    const urlParams = new URLSearchParams(window.location.search);
+    const restaurantId = urlParams.get('token'); // ex: ?token=rest_KAb77ujl
 
     if (!restaurantId || !restaurantId.startsWith('rest_')) {
-      alert("❌ Restaurant non trouvé. Veuillez utiliser le lien fourni.");
-      throw new Error("restaurant_id manquant");
+      alert("❌ Lien invalide. Veuillez utiliser le lien fourni par le système.");
+      throw new Error("restaurant_id manquant ou invalide dans l'URL");
     }
 
-    // Base URL (à adapter si tu changes d'hébergeur)
+    // ✅ Correction : suppression des espaces dans l'URL de base
     const BASE_URL = 'https://web-production-8ff71.up.railway.app';
 
     function previewImage(event) {
@@ -261,7 +261,6 @@
       imageBase64 = reader.result;
 
       try {
-        // ✅ Ajout du restaurant_id dans l'URL
         const response = await fetch(`${BASE_URL}/api/menu/add/${restaurantId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -288,7 +287,6 @@
 
     async function loadMenuForManagement() {
       try {
-        // ✅ Récupérer les plats du restaurant
         const response = await fetch(`${BASE_URL}/api/menu/${restaurantId}`);
         const items = await response.json();
         const container = document.getElementById('manageMenu');
@@ -506,11 +504,12 @@
       });
     });
 
-    // ✅ Chargement initial avec restaurant_id
+    // Chargement initial
     loadOrders(`${BASE_URL}/api/orders/pending/${restaurantId}`, 'pendingOrders');
     loadOrders(`${BASE_URL}/api/orders/confirmed/${restaurantId}`, 'confirmedOrders');
     loadStats();
 
+    // Rafraîchissement automatique toutes les 5 secondes
     setInterval(() => {
       loadOrders(`${BASE_URL}/api/orders/pending/${restaurantId}`, 'pendingOrders');
       loadOrders(`${BASE_URL}/api/orders/confirmed/${restaurantId}`, 'confirmedOrders');

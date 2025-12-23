@@ -281,13 +281,13 @@
   </div>
 
   <script>
-    // ✅ Étape 1 : Extraire le restaurant_id de l'URL
-    const pathParts = window.location.pathname.split('/');
-    const restaurantId = pathParts[2]; // /client/rest_a1b2c3 → index 2
+    // ✅ 🔑 CORRECTION : Lire le restaurant_id depuis le paramètre ?token=...
+    const urlParams = new URLSearchParams(window.location.search);
+    const restaurantId = urlParams.get('token'); // ex: ?token=rest_KAb77ujl
 
     if (!restaurantId || !restaurantId.startsWith('rest_')) {
-      document.getElementById('menuList').innerHTML = '<div class="empty-message">❌ Restaurant non trouvé. Veuillez utiliser le lien fourni.</div>';
-      throw new Error("restaurant_id manquant");
+      document.getElementById('menuList').innerHTML = '<div class="empty-message">❌ Lien invalide. Veuillez utiliser le lien fourni par le restaurant.</div>';
+      throw new Error("restaurant_id manquant ou invalide dans l'URL");
     }
 
     // Base URL (à adapter si hébergé ailleurs)
