@@ -194,8 +194,8 @@
         const data = await response.json();
 
         if (response.ok) {
-          document.getElementById('clientLink').textContent = data.client_link;
-          document.getElementById('staffLink').textContent = data.staff_link;
+          document.getElementById('clientLink').textContent = data.client_url;
+          document.getElementById('staffLink').textContent = data.staff_url;
           
           // Générer le QR code dynamiquement
           const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(data.client_link)}`;
