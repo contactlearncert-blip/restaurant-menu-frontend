@@ -158,7 +158,7 @@
   <div class="stats">
     <div class="stat-card">
       <div>Chiffre d’affaires aujourd’hui</div>
-      <div class="stat-value" id="totalSales">0 MAD</div>
+      <div class="stat-value" id="totalSales">0 </div>
     </div>
     <div class="stat-card">
       <div>Commandes validées</div>
@@ -198,7 +198,7 @@
         <option value="desserts">Desserts</option>
         <option value="boissons">Boissons</option>
       </select>
-      <input type="text" id="itemPrice" placeholder="Prix (ex: 18 MAD)" required />
+      <input type="text" id="itemPrice" placeholder="Prix (ex: 18 )" required />
       
       <label for="itemImageUpload">Choisir une image :</label>
       <input type="file" id="itemImageUpload" accept="image/*" onchange="previewImage(event)" />
@@ -415,7 +415,7 @@
           let content = "=== VENTES DU JOUR ===\n\n";
           todayOrders.forEach(order => {
             const itemsStr = order.items.map(item => `${item.name} (${item.price})`).join(', ');
-            content += `Table ${order.table_number}: ${itemsStr} — Total: ${order.total_price} MAD\n`;
+            content += `Table ${order.table_number}: ${itemsStr} — Total: ${order.total_price} \n`;
           });
 
           const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
@@ -438,7 +438,7 @@
       try {
         const response = await fetch(`${BASE_URL}/api/stats/today/${restaurantId}`);
         const stats = await response.json();
-        document.getElementById('totalSales').textContent = `${Math.round(stats.total_sales * 100) / 100 || 0} MAD`;
+        document.getElementById('totalSales').textContent = `${Math.round(stats.total_sales * 100) / 100 || 0} `;
         document.getElementById('ordersCount').textContent = stats.orders_count || 0;
       } catch (err) {
         console.error(err);
