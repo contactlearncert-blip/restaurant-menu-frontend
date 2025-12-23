@@ -263,7 +263,7 @@
   </nav>
 
   <div class="menu-grid" id="menuList">
-    <!-- Plats dynamiques -->
+    <div class="empty-message">Chargement du menu…</div>
   </div>
 
   <button id="orderBtn" class="order-btn-fixed" disabled onclick="showOrderForm()">Passer la commande</button>
@@ -281,16 +281,16 @@
   </div>
 
   <script>
-    // ✅ 🔑 CORRECTION : Lire le restaurant_id depuis le paramètre ?token=...
+    // Lire le token depuis l'URL
     const urlParams = new URLSearchParams(window.location.search);
-    const restaurantId = urlParams.get('token'); // ex: ?token=rest_KAb77ujl
+    const restaurantId = urlParams.get('token');
 
     if (!restaurantId || !restaurantId.startsWith('rest_')) {
-      document.getElementById('menuList').innerHTML = '<div class="empty-message">❌ Lien invalide. Veuillez utiliser le lien fourni par le restaurant.</div>';
-      throw new Error("restaurant_id manquant ou invalide dans l'URL");
+      document.getElementById('menuList').innerHTML = '<div class="empty-message">❌ Lien invalide.</div>';
+      throw new Error("restaurant_id manquant");
     }
 
-    // Base URL (à adapter si hébergé ailleurs)
+    // ✅ CORRIGÉ : pas d'espaces à la fin !
     const BASE_URL = 'https://web-production-8ff71.up.railway.app';
 
     let menuItems = [];
@@ -298,7 +298,7 @@
     let currentCategory = 'all';
     let currentOrderId = null;
 
-    // ✅ Charger le menu avec restaurant_id
+    // Charger le menu
     fetch(`${BASE_URL}/api/menu/${restaurantId}`)
       .then(res => res.json())
       .then(items => {
@@ -307,8 +307,8 @@
         renderMenu();
       })
       .catch(err => {
-        document.getElementById('menuList').innerHTML = '<div class="empty-message">❌ Erreur de chargement du menu.</div>';
         console.error(err);
+        document.getElementById('menuList').innerHTML = '<div class="empty-message">❌ Erreur de chargement du menu.</div>';
       });
 
     function getUniqueCategories(items) {
@@ -354,16 +354,22 @@
       }
 
       if (filtered.length === 0) {
-        container.innerHTML = '<div class="empty-message">Aucun plat disponible pour le moment.</div>';
+        container.innerHTML = '<div class="empty-message">Aucun plat trouvé.</div>';
       } else {
         container.innerHTML = filtered.map(item => {
           const isSelected = selectedItems.some(s => s.id == item.id);
-          const priceMAD = item.price.replace(/€|DHS|\s*$/i, '').trim() + ' MAD';
+
+          // ✅ CORRIGÉ : supprimer "MAD" s'il existe, puis ajouter un seul "MAD"
+          let priceClean = (item.price || "").toString().replace(/\s*MAD\s*/gi, '').trim();
+          let priceNum = parseFloat(priceClean);
+          if (isNaN(priceNum)) priceNum = 0;
+          const priceMAD = `${priceNum.toFixed(2)} MAD`;
+
           return `
             <div class="menu-item ${isSelected ? 'selected' : ''}" onclick="toggleSelect(${item.id})">
-              <img src="${item.image_data}" onerror="this.style.display='none'" />
-              <h3>${item.name}</h3>
-              <p>${item.description}</p>
+              <img src="${item.image_data || ''}" onerror="this.style.display='none'" />
+              <h3>${item.name || 'Plat sans nom'}</h3>
+              <p>${item.description || 'Pas de description'}</p>
               <div class="price">${priceMAD}</div>
             </div>
           `;
@@ -396,13 +402,7 @@
       renderMenu();
 
       if (selectedItems.length > 0 && !currentOrderId) {
-        const orderBtn = document.getElementById('orderBtn');
-        if (orderBtn) {
-          orderBtn.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'end' 
-          });
-        }
+        document.getElementById('orderBtn').scrollIntoView({ behavior: 'smooth', block: 'end' });
       }
     }
 
@@ -422,21 +422,28 @@
       }
 
       const total = selectedItems.reduce((sum, item) => {
-        const priceStr = item.price.replace(/€|DHS|MAD|\s/gi, '').trim();
-        return sum + (parseFloat(priceStr) || 0);
+        let priceClean = (item.price || "").toString().replace(/\s*MAD\s*/gi, '').trim();
+        let priceNum = parseFloat(priceClean);
+        return sum + (isNaN(priceNum) ? 0 : priceNum);
       }, 0);
 
-      // ✅ Envoyer la commande avec restaurant_id
+      // ✅ N'envoyer que les ID
+      const itemsToSend = selectedItems.map(item => ({ id: item.id }));
+
       fetch(`${BASE_URL}/api/order/${restaurantId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ table_number: tableNumber, items: selectedItems, total_price: total })
+        body: JSON.stringify({ 
+          table_number: tableNumber, 
+          items: itemsToSend, 
+          total_price: total 
+        })
       })
       .then(res => res.json())
       .then(data => {
         currentOrderId = data.order_id;
         const btn = document.getElementById('orderBtn');
-        btn.textContent = '⏳ Votre commande est en attente de validation...';
+        btn.textContent = '⏳ En attente de validation...';
         btn.disabled = true;
         btn.className = 'order-btn-fixed pending';
 
@@ -445,7 +452,7 @@
             .then(r => r.json())
             .then(statusData => {
               if (statusData.status === 'confirmed') {
-                btn.textContent = '✅ Votre commande est validée !';
+                btn.textContent = '✅ Commande validée !';
                 btn.className = 'order-btn-fixed success';
                 clearInterval(checkStatus);
                 setTimeout(() => {
@@ -454,14 +461,15 @@
                   renderMenu();
                 }, 5000);
               }
-            });
+            })
+            .catch(console.error);
         }, 2000);
       })
       .catch(err => {
         console.error(err);
-        document.getElementById('orderBtn').textContent = '❌ Erreur lors de l\'envoi.';
+        alert("❌ Erreur lors de l'envoi de la commande.");
+        document.getElementById('orderBtn').textContent = 'Passer la commande';
         document.getElementById('orderBtn').className = 'order-btn-fixed';
-        setTimeout(() => renderMenu(), 3000);
       });
 
       closeModal();
@@ -473,10 +481,10 @@
         .then(statusData => {
           const btn = document.getElementById('orderBtn');
           if (statusData.status === 'confirmed') {
-            btn.textContent = '✅ Votre commande est validée !';
+            btn.textContent = '✅ Commande validée !';
             btn.className = 'order-btn-fixed success';
           } else {
-            btn.textContent = '⏳ Votre commande est en attente de validation...';
+            btn.textContent = '⏳ En attente...';
             btn.className = 'order-btn-fixed pending';
           }
         });
