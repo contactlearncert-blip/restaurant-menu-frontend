@@ -175,12 +175,16 @@
 
   <div id="pendingTab" class="tab-content active">
     <h2>📦 Commandes en Attente</h2>
-    <div id="pendingOrders"></div>
+    <div id="pendingOrders">
+      <div class="no-orders">Chargement…</div>
+    </div>
   </div>
 
   <div id="confirmedTab" class="tab-content">
     <h2>✅ Commandes Validées</h2>
-    <div id="confirmedOrders"></div>
+    <div id="confirmedOrders">
+      <div class="no-orders">Chargement…</div>
+    </div>
   </div>
 
   <div id="addTab" class="tab-content">
@@ -205,48 +209,46 @@
       <button onclick="addMenuItem()">Ajouter le plat</button>
     </div>
 
-    <!-- Section de gestion des plats -->
     <h2 style="margin-top: 30px;">🗑️ Gérer les plats</h2>
     <div id="manageMenu">
-      <!-- Liste chargée dynamiquement -->
+      <p>Chargement…</p>
     </div>
   </div>
 
   <script>
-    // ✅ 🔑 CORRECTION : Lire le restaurant_id depuis ?token=...
+    // ✅ Lire le token depuis l'URL
     const urlParams = new URLSearchParams(window.location.search);
-    const restaurantId = urlParams.get('token'); // ex: ?token=rest_KAb77ujl
+    const restaurantId = urlParams.get('token');
 
     if (!restaurantId || !restaurantId.startsWith('rest_')) {
-      alert("❌ Lien invalide. Veuillez utiliser le lien fourni par le système.");
-      throw new Error("restaurant_id manquant ou invalide dans l'URL");
+      alert("❌ Lien invalide. Veuillez utiliser le lien fourni.");
+      throw new Error("restaurant_id manquant");
     }
 
-    // ✅ Correction : suppression des espaces dans l'URL de base
+    // ✅ CORRIGÉ : pas d'espace à la fin !
     const BASE_URL = 'https://web-production-8ff71.up.railway.app';
 
+    // === Fonctions ===
     function previewImage(event) {
       const input = event.target;
       const preview = document.getElementById('preview');
       const reader = new FileReader();
-      reader.onload = function() {
+      reader.onload = () => {
         preview.src = reader.result;
         preview.style.display = 'block';
       };
-      if (input.files && input.files[0]) {
-        reader.readAsDataURL(input.files[0]);
-      }
+      if (input.files?.[0]) reader.readAsDataURL(input.files[0]);
     }
 
     async function addMenuItem() {
-      const name = document.getElementById('itemName').value;
-      const desc = document.getElementById('itemDesc').value;
+      const name = document.getElementById('itemName').value.trim();
+      const desc = document.getElementById('itemDesc').value.trim();
       const category = document.getElementById('itemCategory').value;
-      const price = document.getElementById('itemPrice').value;
+      const price = document.getElementById('itemPrice').value.trim();
       const imageFile = document.getElementById('itemImageUpload').files[0];
 
       if (!name || !desc || !category || !price) {
-        alert("Veuillez remplir tous les champs obligatoires.");
+        alert("Veuillez remplir tous les champs.");
         return;
       }
       if (!imageFile) {
@@ -254,11 +256,10 @@
         return;
       }
 
-      let imageBase64 = '';
       const reader = new FileReader();
       reader.readAsDataURL(imageFile);
       await new Promise(resolve => reader.onloadend = resolve);
-      imageBase64 = reader.result;
+      const imageBase64 = reader.result;
 
       try {
         const response = await fetch(`${BASE_URL}/api/menu/add/${restaurantId}`, {
@@ -267,9 +268,9 @@
           body: JSON.stringify({ name, description: desc, category, price, image_data: imageBase64 })
         });
 
-        const result = await response.json();
         if (response.ok) {
-          alert("✅ Plat ajouté avec succès !");
+          alert("✅ Plat ajouté !");
+          // Réinitialiser le formulaire
           document.getElementById('itemName').value = '';
           document.getElementById('itemDesc').value = '';
           document.getElementById('itemPrice').value = '';
@@ -277,11 +278,12 @@
           document.getElementById('preview').style.display = 'none';
           loadMenuForManagement();
         } else {
-          alert("❌ Erreur : " + (result.error || "Inconnue"));
+          const err = await response.json();
+          alert("❌ " + (err.error || "Erreur inconnue"));
         }
       } catch (err) {
-        alert("❌ Erreur réseau.");
         console.error(err);
+        alert("❌ Erreur réseau.");
       }
     }
 
@@ -292,53 +294,44 @@
         const container = document.getElementById('manageMenu');
 
         if (items.length === 0) {
-          container.innerHTML = '<p>Aucun plat à supprimer.</p>';
-          return;
-        }
-
-        container.innerHTML = `
-          <div style="display: grid; gap: 10px; max-height: 300px; overflow-y: auto; padding: 10px; background: #f9f9f9; border-radius: 8px;">
-            ${items.map(item => `
-              <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #eee;">
-                <div>
-                  <strong>${item.name}</strong> — ${item.category}
+          container.innerHTML = '<p>Aucun plat dans le menu.</p>';
+        } else {
+          container.innerHTML = `
+            <div style="display: grid; gap: 10px; max-height: 300px; overflow-y: auto; padding: 10px; background: #f9f9f9; border-radius: 8px;">
+              ${items.map(item => `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #eee;">
+                  <div><strong>${item.name}</strong> — ${item.category}</div>
+                  <button class="delete-btn" onclick="deleteMenuItem(${item.id})">Supprimer</button>
                 </div>
-                <button class="delete-btn" onclick="deleteMenuItem(${item.id})">
-                  Supprimer
-                </button>
-              </div>
-            `).join('')}
-          </div>
-        `;
+              `).join('')}
+            </div>
+          `;
+        }
       } catch (err) {
-        console.error("Erreur lors du chargement des plats :", err);
-        document.getElementById('manageMenu').innerHTML = '<p style="color:red;">Erreur de chargement.</p>';
+        console.error(err);
+        document.getElementById('manageMenu').innerHTML = '<p style="color:red;">❌ Erreur de chargement.</p>';
       }
     }
 
     async function deleteMenuItem(itemId) {
-      if (!confirm("⚠️ Êtes-vous sûr de vouloir supprimer ce plat ? Cette action est irréversible.")) {
-        return;
-      }
+      if (!confirm("⚠️ Supprimer ce plat ? Cette action est irréversible.")) return;
 
       try {
-        const response = await fetch(`${BASE_URL}/api/menu/${itemId}`, {
-          method: 'DELETE'
-        });
-
+        const response = await fetch(`${BASE_URL}/api/menu/${itemId}`, { method: 'DELETE' });
         if (response.ok) {
-          alert("✅ Plat supprimé avec succès !");
+          alert("✅ Plat supprimé !");
           loadMenuForManagement();
         } else {
-          const error = await response.json();
-          alert("❌ Erreur : " + (error.error || "Impossible de supprimer."));
+          const err = await response.json();
+          alert("❌ " + (err.error || "Impossible de supprimer."));
         }
       } catch (err) {
-        alert("❌ Erreur réseau.");
         console.error(err);
+        alert("❌ Erreur réseau.");
       }
     }
 
+    // ✅ CORRIGÉ : on NE parse PAS order.items → il vient déjà structuré du backend !
     async function loadOrders(url, containerId) {
       const container = document.getElementById(containerId);
       try {
@@ -350,37 +343,27 @@
           return;
         }
 
-        container.innerHTML = orders.map(order => {
-          let itemsList = [];
-          try {
-            itemsList = JSON.parse(order.items);
-          } catch (err) {
-            console.error("Erreur de parsing JSON pour la commande ID", order.id, ":", err);
-            itemsList = [{ name: "Données invalides", price: "???" }];
-          }
-
-          return `
-            <div class="order-card">
-              <div class="order-header">
-                <span class="order-table">Table ${order.table_number}</span>
-                ${url.includes('pending') ? 
-                  `<button class="confirm-btn" onclick="confirmOrder(${order.id})">✓ Valider</button>` : 
-                  `<div style="display: flex; gap: 5px;">
-                     <small style="color:green;">✅ Validée</small>
-                     <button class="delete-btn" onclick="deleteOrder(${order.id})">🗑️ Supprimer</button>
-                   </div>`
-                }
-              </div>
-              <div class="order-items">
-                ${itemsList.map(item => `${item.name} (${item.price})`).join(', ')}
-              </div>
-              <small>Envoyée à ${new Date(order.timestamp).toLocaleTimeString()}</small>
+        container.innerHTML = orders.map(order => `
+          <div class="order-card">
+            <div class="order-header">
+              <span class="order-table">Table ${order.table_number}</span>
+              ${url.includes('pending') ? 
+                `<button class="confirm-btn" onclick="confirmOrder(${order.id})">✓ Valider</button>` : 
+                `<div style="display: flex; gap: 5px;">
+                   <small style="color:green;">✅ Validée</small>
+                   <button class="delete-btn" onclick="deleteOrder(${order.id})">🗑️ Supprimer</button>
+                 </div>`
+              }
             </div>
-          `;
-        }).join('');
+            <div class="order-items">
+              ${order.items.map(item => `${item.name} (${item.price})`).join(', ')}
+            </div>
+            <small>Envoyée à ${new Date(order.timestamp).toLocaleTimeString()}</small>
+          </div>
+        `).join('');
       } catch (err) {
-        console.error("Erreur lors du chargement des commandes:", err);
-        container.innerHTML = '<div class="no-orders" style="color:red;">Erreur de connexion au serveur.</div>';
+        console.error(err);
+        container.innerHTML = '<div class="no-orders" style="color:red;">❌ Erreur serveur.</div>';
       }
     }
 
@@ -388,39 +371,32 @@
       try {
         const response = await fetch(`${BASE_URL}/api/order/${orderId}/confirm`, { method: 'POST' });
         if (response.ok) {
-          alert("✅ Commande confirmée !");
-          loadOrders(`${BASE_URL}/api/orders/pending/${restaurantId}`, 'pendingOrders');
-          loadOrders(`${BASE_URL}/api/orders/confirmed/${restaurantId}`, 'confirmedOrders');
-          loadStats();
+          await Promise.all([
+            loadOrders(`${BASE_URL}/api/orders/pending/${restaurantId}`, 'pendingOrders'),
+            loadOrders(`${BASE_URL}/api/orders/confirmed/${restaurantId}`, 'confirmedOrders'),
+            loadStats()
+          ]);
         }
       } catch (err) {
-        alert("❌ Erreur lors de la confirmation.");
         console.error(err);
+        alert("❌ Erreur de confirmation.");
       }
     }
 
     async function deleteOrder(orderId) {
-      if (!confirm("⚠️ Êtes-vous sûr de vouloir supprimer cette commande ? Cette action est irréversible.")) {
-        return;
-      }
-
+      if (!confirm("⚠️ Supprimer cette commande ?")) return;
       try {
-        const response = await fetch(`${BASE_URL}/api/order/${orderId}`, {
-          method: 'DELETE'
-        });
-
+        const response = await fetch(`${BASE_URL}/api/order/${orderId}`, { method: 'DELETE' });
         if (response.ok) {
-          alert("✅ Commande supprimée avec succès !");
-          loadOrders(`${BASE_URL}/api/orders/pending/${restaurantId}`, 'pendingOrders');
-          loadOrders(`${BASE_URL}/api/orders/confirmed/${restaurantId}`, 'confirmedOrders');
-          loadStats();
-        } else {
-          const error = await response.json();
-          alert("❌ Erreur : " + (error.error || "Impossible de supprimer."));
+          await Promise.all([
+            loadOrders(`${BASE_URL}/api/orders/pending/${restaurantId}`, 'pendingOrders'),
+            loadOrders(`${BASE_URL}/api/orders/confirmed/${restaurantId}`, 'confirmedOrders'),
+            loadStats()
+          ]);
         }
       } catch (err) {
-        alert("❌ Erreur réseau.");
         console.error(err);
+        alert("❌ Erreur de suppression.");
       }
     }
 
@@ -428,50 +404,33 @@
       fetch(`${BASE_URL}/api/orders/confirmed/${restaurantId}`)
         .then(res => res.json())
         .then(orders => {
-          if (orders.length === 0) {
-            alert("Aucune commande validée à exporter.");
-            return;
-          }
-
           const today = new Date().toISOString().split('T')[0];
-          const todayOrders = orders.filter(order => 
-            order.timestamp.startsWith(today)
-          );
+          const todayOrders = orders.filter(order => order.timestamp.startsWith(today));
 
           if (todayOrders.length === 0) {
-            alert("Aucune commande validée aujourd'hui.");
+            alert("Aucune vente aujourd'hui.");
             return;
           }
 
           let content = "=== VENTES DU JOUR ===\n\n";
           todayOrders.forEach(order => {
-            let itemsList = [];
-            try {
-              itemsList = JSON.parse(order.items);
-            } catch (err) {
-              itemsList = [{ name: "Données invalides", price: "???" }];
-            }
-
-            const total = parseFloat(order.total_price).toFixed(2);
-            const itemsStr = itemsList.map(item => `${item.name} (${item.price})`).join(', ');
-            content += `Table ${order.table_number}: ${itemsStr} — Total: ${total} MAD\n`;
+            const itemsStr = order.items.map(item => `${item.name} (${item.price})`).join(', ');
+            content += `Table ${order.table_number}: ${itemsStr} — Total: ${order.total_price} MAD\n`;
           });
 
           const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-          const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
-          a.href = url;
+          a.href = URL.createObjectURL(blob);
           a.download = `ventes_${today}.txt`;
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-
+          URL.revokeObjectURL(a.href);
           alert(`✅ Fichier "ventes_${today}.txt" téléchargé.`);
         })
         .catch(err => {
-          alert("❌ Erreur lors de l'exportation.");
           console.error(err);
+          alert("❌ Erreur d'export.");
         });
     }
 
@@ -479,20 +438,20 @@
       try {
         const response = await fetch(`${BASE_URL}/api/stats/today/${restaurantId}`);
         const stats = await response.json();
-        document.getElementById('totalSales').textContent = `${stats.total_sales || 0} MAD`;
+        document.getElementById('totalSales').textContent = `${Math.round(stats.total_sales * 100) / 100 || 0} MAD`;
         document.getElementById('ordersCount').textContent = stats.orders_count || 0;
       } catch (err) {
         console.error(err);
       }
     }
 
+    // === Gestion des onglets ===
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         btn.classList.add('active');
-        const tabId = `${btn.dataset.tab}Tab`;
-        document.getElementById(tabId).classList.add('active');
+        document.getElementById(`${btn.dataset.tab}Tab`).classList.add('active');
 
         if (btn.dataset.tab === 'pending') {
           loadOrders(`${BASE_URL}/api/orders/pending/${restaurantId}`, 'pendingOrders');
@@ -509,7 +468,7 @@
     loadOrders(`${BASE_URL}/api/orders/confirmed/${restaurantId}`, 'confirmedOrders');
     loadStats();
 
-    // Rafraîchissement automatique toutes les 5 secondes
+    // Rafraîchissement auto
     setInterval(() => {
       loadOrders(`${BASE_URL}/api/orders/pending/${restaurantId}`, 'pendingOrders');
       loadOrders(`${BASE_URL}/api/orders/confirmed/${restaurantId}`, 'confirmedOrders');
