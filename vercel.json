@@ -1,0 +1,7 @@
+{
+  "rewrites": [
+    { "source": "/client/:id", "destination": "/client.html" },
+    { "source": "/staff/:id", "destination": "/staff.html" },
+    { "source": "/register", "destination": "/register.html" }
+  ]
+}
