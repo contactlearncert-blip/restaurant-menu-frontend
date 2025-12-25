@@ -198,7 +198,7 @@
         <option value="desserts">Desserts</option>
         <option value="boissons">Boissons</option>
       </select>
-      <input type="text" id="itemPrice" placeholder="Prix (ex: 18)" required />
+      <input type="text" id="itemPrice" placeholder="Prix (ex: 18 )" required />
       
       <label for="itemImageUpload">Choisir une image :</label>
       <input type="file" id="itemImageUpload" accept="image/*" onchange="previewImage(event)" />
@@ -256,18 +256,16 @@
         return;
       }
 
-      // ✅ Créer un FormData pour envoyer l'image comme fichier
-      const formData = new FormData();
-      formData.append('name', name);
-      formData.append('description', desc);
-      formData.append('category', category);
-      formData.append('price', price);
-      formData.append('image_data', imageFile); // ← Envoie le fichier, pas le Base64
+      const reader = new FileReader();
+      reader.readAsDataURL(imageFile);
+      await new Promise(resolve => reader.onloadend = resolve);
+      const imageBase64 = reader.result;
 
       try {
         const response = await fetch(`${BASE_URL}/api/menu/add/${restaurantId}`, {
           method: 'POST',
-          body: formData
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, description: desc, category, price, image_data: imageBase64 })
         });
 
         if (response.ok) {
@@ -285,7 +283,7 @@
         }
       } catch (err) {
         console.error(err);
-        alert("❌ Erreur réseau. Vérifiez votre connexion.");
+        alert("❌ Erreur réseau.");
       }
     }
 
